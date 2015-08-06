@@ -1,3 +1,5 @@
+This is a personal fork of the Braintreeps' VIM dotfiles.
+
 After cloning this project, you can run the following to link these dotfiles
 into your home directory:
 
