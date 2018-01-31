@@ -37,8 +37,12 @@ set smartcase
 set wildignore+=*.pyc,*.o,*.class,*.lo,.git,vendor/*,node_modules/**,bower_components/**,*/build_gradle/*,*/build_intellij/*,*/build/*,*/cassandra_data/*
 set tags+=gems.tags
 set mouse=
+set ttymouse=
 set backupcopy=yes " Setting backup copy preserves file inodes, which are needed for Docker file mounting
-set signcolumn=yes
+if v:version > 704 || v:version == 704 && has('patch2201') " signcolumn wasn't added until vim 7.4.2201
+  set signcolumn=yes
+endif
+set complete-=t " Don't use tags for autocomplete
 
 if version >= 703
   set undodir=~/.vim/undodir
@@ -49,10 +53,6 @@ set undolevels=1000 "maximum number of changes that can be undone
 
 " Color
 colorscheme vibrantink
-
-au FileType diff colorscheme desert
-au FileType git colorscheme desert
-au BufWinLeave * colorscheme vibrantink
 
 augroup markdown
   au!
@@ -84,9 +84,6 @@ endif
 " Highlight trailing whitespace
 autocmd InsertEnter * match ExtraWhitespace /\s\+\%#\@<!$/
 autocmd BufRead,InsertLeave * match ExtraWhitespace /\s\+$/
-
-" Autoremove trailing spaces when saving the buffer
-autocmd FileType c,cpp,elixir,eruby,html,java,javascript,php,ruby autocmd BufWritePre <buffer> :%s/\s\+$//e
 
 " Highlight too-long lines
 autocmd BufRead,InsertEnter,InsertLeave * 2match LineLengthError /\%126v.*/
@@ -130,6 +127,7 @@ nnoremap <Leader>ss :SideSearch <C-r><C-w><CR> | wincmd p
  command! -complete=file -nargs=+ SS execute 'SideSearch <args>'
 " }}}
 
+let g:ale_enabled = 0                     " Disable linting by default
 let g:ale_lint_on_text_changed = 'normal' " Only lint while in normal mode
 let g:ale_lint_on_insert_leave = 1        " Automatically lint when leaving insert mode
 
@@ -145,7 +143,7 @@ let g:gist_clip_command = 'pbcopy'
 let g:gist_detect_filetype = 1
 
 let g:rubycomplete_buffer_loading = 1
-
+let g:ruby_indent_assignment_style = 'variable'
 
 let g:no_html_toolbar = 'yes'
 
@@ -176,16 +174,22 @@ endif
 
 let g:puppet_align_hashes = 0
 
-let $FZF_DEFAULT_COMMAND = 'find * -type f 2>/dev/null | grep -v -E "deps/|_build/|node_modules/|vendor/|build_intellij/"' 
+let $FZF_DEFAULT_COMMAND = 'find * -type f 2>/dev/null | grep -v -E "deps/|_build/|node_modules/|vendor/"'
 let $FZF_DEFAULT_OPTS = '--reverse'
 let g:fzf_tags_command = 'ctags -R --exclude=".git\|.svn\|log\|tmp\|db\|pkg" --extra=+f --langmap=Lisp:+.clj'
+let g:fzf_action = {
+  \ 'ctrl-t': 'tab split',
+  \ 'ctrl-x': 'split',
+  \ 'ctrl-s': 'split',
+  \ 'ctrl-v': 'vsplit' }
 
 let g:vim_markdown_folding_disabled = 1
 
 let g:go_fmt_command = "goimports"
 let g:go_highlight_trailing_whitespace_error = 0
 
-let g:completor_auto_trigger = 0
+let test#strategy = "vimux"
+let test#python#runner = 'nose'
 
 " ========= Shortcuts ========
 
@@ -272,6 +276,17 @@ function! GitGrepWord()
 endfunction
 command! -nargs=0 GitGrepWord :call GitGrepWord()
 nnoremap <silent> <Leader>gw :GitGrepWord<CR>
+
+function! GitHubURL() range
+  let branch = systemlist("git name-rev --name-only HEAD")[0]
+  let remote = systemlist("git config branch." . branch . ".remote")[0]
+  let repo = systemlist("git config --get remote." . remote . ".url | sed 's/\.git$//' | sed 's_^git@\\(.*\\):_https://\\1/_' | sed 's_^git://_https://_'")[0]
+  let revision = systemlist("git rev-parse HEAD")[0]
+  let path = systemlist("git ls-files --full-name " . @%)[0]
+  let url = repo . "/blob/" . revision . "/" . path . "#L" . a:firstline . "-L" . a:lastline
+  echomsg url
+endfunction
+command! -range GitHubURL <line1>,<line2>call GitHubURL()
 
 function! Trim()
   %s/\s*$//
